@@ -1,0 +1,217 @@
+import java.io.*;
+import java.util.*;
+
+// Simple AVL Node Class
+class AVLNode {
+    Stock stock;
+    AVLNode left, right;
+    int height;
+
+    public AVLNode(Stock stock) {
+        this.stock = stock;
+        this.height = 1; // Every new node starts with height 1
+    }
+}
+
+// AVL Tree Class
+class AVLTree {
+    private AVLNode root;
+
+    private int height(AVLNode node) {
+        return (node == null) ? 0 : node.height;
+    }
+
+    private AVLNode rotateRight(AVLNode y) {
+        AVLNode x = y.left;
+        y.left = x.right;
+        x.right = y;
+        updateHeight(y);
+        updateHeight(x);
+        return x;
+    }
+
+    private AVLNode rotateLeft(AVLNode x) {
+        AVLNode y = x.right;
+        x.right = y.left;
+        y.left = x;
+        updateHeight(x);
+        updateHeight(y);
+        return y;
+    }
+
+    private void updateHeight(AVLNode node) {
+        node.height = Math.max(height(node.left), height(node.right)) + 1;
+    }
+
+    private AVLNode insert(AVLNode node, Stock stock) {
+        if (node == null) return new AVLNode(stock);
+
+        if (stock.getEngineNumber().compareTo(node.stock.getEngineNumber()) < 0) {
+            node.left = insert(node.left, stock);
+        } else if (stock.getEngineNumber().compareTo(node.stock.getEngineNumber()) > 0) {
+            node.right = insert(node.right, stock);
+        } else {
+            System.out.println("Stock already exists!");
+            return node;
+        }
+
+        updateHeight(node);
+        return balance(node);
+    }
+
+    private AVLNode balance(AVLNode node) {
+        int balanceFactor = height(node.left) - height(node.right);
+
+        if (balanceFactor > 1) {
+            if (height(node.left.left) >= height(node.left.right)) {
+                return rotateRight(node);
+            } else {
+                node.left = rotateLeft(node.left);
+                return rotateRight(node);
+            }
+        }
+        if (balanceFactor < -1) {
+            if (height(node.right.right) >= height(node.right.left)) {
+                return rotateLeft(node);
+            } else {
+                node.right = rotateRight(node.right);
+                return rotateLeft(node);
+            }
+        }
+
+        return node;
+    }
+
+    public void addStock(Stock stock) {
+        root = insert(root, stock);
+    }
+
+    private Stock search(AVLNode node, String engineNumber) {
+        if (node == null) return null;
+        if (engineNumber.equals(node.stock.getEngineNumber())) return node.stock;
+
+        return (engineNumber.compareTo(node.stock.getEngineNumber()) < 0)
+                ? search(node.left, engineNumber)
+                : search(node.right, engineNumber);
+    }
+
+    public Stock searchStock(String engineNumber) {
+        return search(root, engineNumber);
+    }
+
+    private void displayInOrder(AVLNode node) {
+        if (node != null) {
+            displayInOrder(node.left);
+            System.out.println(node.stock);
+            displayInOrder(node.right);
+        }
+    }
+
+    public void displaySortedInventory() {
+        displayInOrder(root);
+    }
+}
+
+// Stock Class
+class Stock {
+    private String dateEntered, status, brand, engineNumber;
+
+    public Stock(String dateEntered, String status, String brand, String engineNumber) {
+        this.dateEntered = dateEntered;
+        this.status = status;
+        this.brand = brand;
+        this.engineNumber = engineNumber;
+    }
+
+    public String getEngineNumber() {
+        return engineNumber;
+    }
+
+    public String toCSV() {
+        return dateEntered + "," + status + "," + brand + "," + engineNumber;
+    }
+
+    @Override
+    public String toString() {
+        return "EngineNumber: " + engineNumber + ", Brand: " + brand + ", Status: " + status + ", Date: " + dateEntered;
+    }
+}
+
+// Main Class (Renamed to MotorPH_Ms2)
+public class MotorPH_Ms2 {
+    private static final String CSV_FILE = "src/inventory.csv";
+    private static AVLTree inventory = new AVLTree();
+
+    public static void main(String[] args) {
+        loadInventoryFromCSV();
+        Scanner scanner = new Scanner(System.in);
+
+        while (true) {
+            System.out.println("\n--- Inventory Management System ---");
+            System.out.println("1. Add Stock");
+            System.out.println("2. Search Stock");
+            System.out.println("3. Display Sorted Inventory");
+            System.out.println("4. Exit");
+            System.out.print("Enter choice: ");
+
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (choice) {
+                case 1 -> addStock(scanner);
+                case 2 -> searchStock(scanner);
+                case 3 -> inventory.displaySortedInventory();
+                case 4 -> {
+                    saveInventoryToCSV();
+                    System.out.println("Inventory saved. Exiting...");
+                    System.exit(0);
+                }
+                default -> System.out.println("Invalid choice.");
+            }
+        }
+    }
+
+    private static void loadInventoryFromCSV() {
+        try (BufferedReader reader = new BufferedReader(new FileReader(CSV_FILE))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] data = line.split(",");
+                if (data.length < 4 || data[0].equalsIgnoreCase("Date")) continue;
+
+                Stock stock = new Stock(data[0], data[1], data[2], data[3]);
+                inventory.addStock(stock);
+            }
+            System.out.println("Inventory loaded successfully.");
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + e.getMessage());
+        }
+    }
+
+    private static void addStock(Scanner scanner) {
+        System.out.print("Enter engine number: ");
+        String engineNumber = scanner.nextLine();
+        System.out.print("Enter brand: ");
+        String brand = scanner.nextLine();
+        System.out.print("Enter status: ");
+        String status = scanner.nextLine();
+        System.out.print("Enter date entered: ");
+        String dateEntered = scanner.nextLine();
+
+        inventory.addStock(new Stock(dateEntered, status, brand, engineNumber));
+    }
+
+    private static void searchStock(Scanner scanner) {
+        System.out.print("Enter engine number to search: ");
+        Stock stock = inventory.searchStock(scanner.nextLine());
+
+        if (stock != null) {
+            System.out.println("Stock found: " + stock);
+        } else {
+            System.out.println("Stock not found.");
+        }
+    }
+
+    private static void saveInventoryToCSV() {
+        // Placeholder - Save functionality can be added later
+    }
+}
